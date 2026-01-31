@@ -217,3 +217,45 @@ if __name__=="__main__":
         emb1 = embs.get_embedding(query_word_1)
         emb2 = embs.get_embedding(query_word_2)
         print("cosine similarity of %s and %s: %f" % (query_word_1, query_word_2, np.dot(emb1, emb2)/np.sqrt(np.dot(emb1, emb1) * np.dot(emb2, emb2))))
+
+
+import torch
+from torch.utils.data import Dataset
+
+class SubwordSentimentDataset(Dataset):
+    def __init__(self, infile, examples, bpe, subword_to_idx,
+                 max_len=200, pad_token="<PAD>", unk_token="<UNK>"):
+
+        self.examples = examples
+        self.bpe = bpe
+        self.subword_to_idx = subword_to_idx
+        self.max_len = max_len
+        self.pad = subword_to_idx[pad_token]
+        self.unk = subword_to_idx[unk_token]
+
+        self.X = []
+        self.y = []
+
+        for ex in examples:
+            tokens = []
+            for w in ex.words:
+                tokens.extend(bpe.encode_word(w))
+
+            ids = [subword_to_idx.get(t, self.unk) for t in tokens]
+
+            if len(ids) < max_len:
+                ids += [self.pad] * (max_len - len(ids))
+            else:
+                ids = ids[:max_len]
+
+            self.X.append(ids)
+            self.y.append(ex.label)
+
+        self.X = torch.tensor(self.X, dtype=torch.long)
+        self.y = torch.tensor(self.y, dtype=torch.long)
+
+    def __len__(self):
+        return len(self.y)
+
+    def __getitem__(self, idx):
+        return self.X[idx], self.y[idx]

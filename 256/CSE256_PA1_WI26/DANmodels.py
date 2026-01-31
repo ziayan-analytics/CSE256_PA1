@@ -61,3 +61,31 @@ class SubwordDAN(nn.Module):
         logits = self.out(h)
         return F.log_softmax(logits, dim=1)
 
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+class SubwordDAN(nn.Module):
+    def __init__(self, vocab_size, embed_dim, hidden_size,
+                 num_layers=2, dropout=0.3, pad_idx=0):
+        super().__init__()
+
+        self.embedding = nn.Embedding(vocab_size, embed_dim, padding_idx=pad_idx)
+
+        layers = []
+        dim = embed_dim
+        for _ in range(num_layers):
+            layers.append(nn.Linear(dim, hidden_size))
+            layers.append(nn.ReLU())
+            layers.append(nn.Dropout(dropout))
+            dim = hidden_size
+
+        self.ff = nn.Sequential(*layers)
+        self.out = nn.Linear(hidden_size, 2)
+
+    def forward(self, x):
+        emb = self.embedding(x)          # [B,T,D]
+        avg = emb.mean(dim=1)           # [B,D]
+        h = self.ff(avg)
+        return F.log_softmax(self.out(h), dim=1)

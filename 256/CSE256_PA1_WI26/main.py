@@ -11,7 +11,8 @@ import argparse
 import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
 from BOWmodels import SentimentDatasetBOW, NN2BOW, NN3BOW
-
+from torch.utils.data import DataLoader
+from sentiment_data import SubwordSentimentDataset
 
 
 from torch.utils.data import Dataset
@@ -307,6 +308,60 @@ def main():
         train_acc_list, dev_acc_list = experiment(model, train_loader, dev_loader)
 
     # optional: save plots similar to BOW if you want
+
+
+
+
+
+    elif args.model == "SUBWORDDAN":
+        
+        from bpe import BPE
+        from DANmodels import SubwordDAN
+        
+
+        print("\nRunning SUBWORDDAN (BPE + random embeddings)")
+
+        train_examples = read_sentiment_examples("data/train.txt")
+        dev_examples = read_sentiment_examples("data/dev.txt")
+
+        all_words = []
+        for ex in train_examples:
+            all_words.extend(ex.words)
+
+        bpe = BPE(vocab_size=args.bpe_vocab_size)
+        bpe.train(all_words)
+
+        subword_to_idx = {"<PAD>": 0, "<UNK>": 1}
+        for sw in bpe.subwords:
+            if sw not in subword_to_idx:
+                subword_to_idx[sw] = len(subword_to_idx)
+
+        train_data = SubwordSentimentDataset(
+            "data/train.txt", train_examples, bpe, subword_to_idx, args.subword_max_len
+        )
+        dev_data = SubwordSentimentDataset(
+            "data/dev.txt", dev_examples, bpe, subword_to_idx, args.subword_max_len
+        )
+
+        train_loader = DataLoader(train_data, batch_size=16, shuffle=True)
+        dev_loader = DataLoader(dev_data, batch_size=16, shuffle=False)
+
+        model = SubwordDAN(
+            vocab_size=len(subword_to_idx),
+            embed_dim=args.subword_embed_dim,
+            hidden_size=args.hidden_size,
+            num_layers=args.num_layers,
+            dropout=args.dropout,
+            pad_idx=0
+        )
+
+        train_acc_list, dev_acc_list = experiment(model, train_loader, dev_loader)
+
+
+
+
+
+
 
 
 
